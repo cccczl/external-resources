@@ -178,15 +178,12 @@ def do_read(cmd, pin):
         msg_type, msg_id, msg_len = hdr.unpack(data)
         if msg_type == MsgType.RSP:
             log.debug(" > %2d,%2d    : status %2d", msg_type, msg_id, msg_len)
-        elif msg_type == MsgType.HW or msg_type == MsgType.BRIDGE:
+        elif msg_type in [MsgType.HW, MsgType.BRIDGE]:
             data = receive(conn, msg_len).split("\0")
             log.debug(" > %2d,%2d,%2d : %s", msg_type, msg_id, msg_len, "=".join(data))
-            if data[0] == cmd[0]+'w' and data[1] == pin:
+            if data[0] == f'{cmd[0]}w' and data[1] == pin:
                 data = data[2:]
                 if len(data) > 1:
-                    print data
-                else:
-                    print data[0]
                 break
 
 for op in args.ops:
@@ -201,7 +198,7 @@ for op in args.ops:
     elif cmd == 'vw':
         conn.sendall(compose(MsgType.BRIDGE, args.bridge, "i", args.target))
         conn.sendall(compose(MsgType.BRIDGE, args.bridge, "vw", op[0], *op[1:]))
-    elif cmd == 'dr' or cmd == 'ar' or cmd == 'vr':
+    elif cmd in ['dr', 'ar', 'vr']:
         do_read(cmd, op[0])
     elif cmd == 'delay':
         time.sleep(op[0])

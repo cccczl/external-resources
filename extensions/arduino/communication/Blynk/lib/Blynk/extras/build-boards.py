@@ -33,23 +33,22 @@ def find_files(directory, pattern):
     for root, dirs, files in os.walk(directory):
         for basename in files:
             if fnmatch.fnmatch(basename, pattern):
-                filename = os.path.join(root, basename)
-                yield filename
+                yield os.path.join(root, basename)
 
 hardware = os.path.expanduser('~') + '/.arduino15/packages/'
 boards = find_files(hardware, 'boards.txt')
 
-hardware2 = arduino_ide_path + '/hardware/'
+hardware2 = f'{arduino_ide_path}/hardware/'
 boards2 = find_files(hardware2, 'boards.txt')
 
 hardware3 = os.path.expanduser('~') + '/.energia15/packages/'
 boards3 = find_files(hardware3, 'boards.txt')
 
-hardware4 = energia_ide_path + '/hardware/'
+hardware4 = f'{energia_ide_path}/hardware/'
 boards4 = find_files(hardware4, 'boards.txt')
 
 boards = list(boards) + list(boards2) + list(boards3) + list(boards4)
-boards = filter(lambda x: -1 == x.find('variants'), boards)
+boards = filter(lambda x: x.find('variants') == -1, boards)
 
 fqbns = []
 for b in boards:
@@ -62,7 +61,7 @@ for b in boards:
 
     lastname = "#"
     with open(b) as f:
-        for line in f.readlines():
+        for line in f:
             if ".name=" in line:
                 line=line.strip()
                 names = line.split(".name=")
@@ -75,14 +74,14 @@ for b in boards:
                     'name': name,
                     'fqbn': ':'.join(fqbn + [lastname])
                 })
-            elif line.startswith(lastname + ".menu."):
+            elif line.startswith(f"{lastname}.menu."):
                 line = line.split('.menu.')[1]
                 line = line.split('=')[0]
                 line = line.split('.')
                 fbqn = fqbns[-1]
-                if not "opts" in fbqn:
+                if "opts" not in fbqn:
                     fbqn["opts"] = {}
-                if not line[0] in fbqn["opts"]:
+                if line[0] not in fbqn["opts"]:
                     fbqn["opts"][line[0]] = line[1]
 
 advanced_boards = {
@@ -91,13 +90,10 @@ advanced_boards = {
 }
 
 for x in fqbns:
-    if x['fqbn'] in advanced_boards.keys():
+    if x['fqbn'] in advanced_boards:
         x['fqbn_adv'] = x['fqbn'] + advanced_boards[x['fqbn']]
     elif 'opts' in x:
-        opts = ""
-        for o in x['opts'].keys():
-            opts +=  o + '=' + x['opts'][o] + ','
-
+        opts = "".join(f'{o}=' + x['opts'][o] + ',' for o in x['opts'].keys())
         x['fqbn_adv'] = x['fqbn'] + ":" + opts.strip(',')
 
 #print json.dumps(fqbns, sort_keys=True, indent=2)
@@ -147,12 +143,12 @@ for m in fqbns:
     elif re.match(skip_boards, m['fqbn']):
         continue
 
-    print "Building:", m['name'], " (", m['fqbn'], ")", " ...",
+    if len(sys.argv) > 1:
     sys.stdout.flush()
 
-    print >>logfile, "\n\n", "================="
-    print >>logfile, "Building:", m['name'], " (", m['fqbn'], ")"
-    print >>logfile, "=================", "\n"
+    if len(sys.argv) > 1:
+    if len(sys.argv) > 1:
+    if len(sys.argv) > 1:
     logfile.flush()
 
     if m["fqbn"].startswith("energia:"):
@@ -170,18 +166,15 @@ for m in fqbns:
         "--board", fqbn,
         fn
     ]
-    #print cmd
-    rc = call(cmd, stdout=logfile, stderr=logfile)
-    if rc:
-        print "Failed"
+    if rc := call(cmd, stdout=logfile, stderr=logfile):
         data['failed'].add(m["fqbn"])
     else:
-        print "OK"
         data['built'].add(m["fqbn"])
         if m["fqbn"] in data['failed']:
             data['failed'].remove(m["fqbn"])
 
 
+    if rc:
     with open(datafile, 'w') as fp:
         json.dump({
           '_stats': {
@@ -193,6 +186,7 @@ for m in fqbns:
           'broken': sorted(data['built'].intersection(data['failed'])),
         }, fp, sort_keys=True, indent=4)
 
+hardware = os.path.expanduser('~') + '/.arduino15/packages/'
 print "=================="
 if len(data['built']):
     print " OK:  ", len(data['built'])

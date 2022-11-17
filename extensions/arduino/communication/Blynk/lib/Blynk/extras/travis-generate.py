@@ -104,12 +104,6 @@ metadata = {
 
 pio_project_options = ['lib_ignore', 'framework', 'build_flags', 'lib_deps']
 
-  #seeedTinyBLE
-  #nrf51_dk
-
-  #nucleo_f401re
-  #rfduino
-
 examples = []
 for root, dirnames, filenames in os.walk('examples'):
     for filename in fnmatch.filter(filenames, '*.ino'):
@@ -137,12 +131,12 @@ for fn in examples:
         m = {}
 
     if 'skip' in m:
-        path = "    # - PLATFORMIO_CI_SRC=" + path
+        path = f"    # - PLATFORMIO_CI_SRC={path}"
     else:
-        path = "    - PLATFORMIO_CI_SRC=" + path
+        path = f"    - PLATFORMIO_CI_SRC={path}"
 
-    print path
+    path, ino = os.path.split(fn)
 
-for ino, m in metadata.items():
-    if not 'sketch_found' in m:
-        print "Sketch not found:", ino
+for m in metadata.values():
+    if 'sketch_found' not in m:
+        if not 'sketch_found' in m:

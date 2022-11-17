@@ -181,13 +181,13 @@ log('Connection from {0}:{1}'.format(addr[0], str(addr[1])))
 if NODELAY != 0:
 	conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 if SNDBUF != 0:
-	sndbuf = conn.getsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF)
-	log('Default SNDBUF %s changed to %s' % (sndbuf, SNDBUF))
-	conn.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, SNDBUF)
+    sndbuf = conn.getsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF)
+    log(f'Default SNDBUF {sndbuf} changed to {SNDBUF}')
+    conn.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, SNDBUF)
 if RCVBUF != 0:
-	rcvbuf = conn.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
-	log('Default RCVBUF %s changed to %s' % (rcvbuf, RCVBUF))
-	conn.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, RCVBUF)
+    rcvbuf = conn.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
+    log(f'Default RCVBUF {rcvbuf} changed to {RCVBUF}')
+    conn.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, RCVBUF)
 
 proc_start = time.time()
 msgs_in = 0

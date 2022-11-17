@@ -67,17 +67,12 @@ class RawIRMessage():
   def _usec_compare(self, seen, expected):
     """Compare two usec values and see if they match within a
        subtractive margin."""
-    if expected is None:
-      return False
-    return expected - self.margin < seen <= expected
+    return False if expected is None else expected - self.margin < seen <= expected
 
   def _usec_compares(self, usecs, expecteds):
     """Compare a usec value to a list of values and return True
        if they are within a subtractive margin."""
-    for expected in expecteds:
-      if self._usec_compare(usecs, expected):
-        return True
-    return False
+    return any(self._usec_compare(usecs, expected) for expected in expecteds)
 
   def display_binary(self, binary_str):
     """Display common representations of the suppied binary string."""
@@ -98,76 +93,71 @@ class RawIRMessage():
 
   def add_data_code(self, bin_str, name="", footer=True):
     """Add the common "data" sequence of code to send the bulk of a message."""
-    # pylint: disable=no-self-use
-    code = []
     nbits = len(bin_str)
-    code.append("    // Data Section #%d" % self.section_count)
-    code.append("    // e.g. data = 0x%X, nbits = %d" % (int(bin_str, 2),
-                                                         nbits))
-    code.append("    sendData(k%sBitMark, k%sOneSpace, k%sBitMark, "
-                "k%sZeroSpace, send_data, %d, true);" %
-                (name, name, name, name, nbits))
-    code.append("    send_data >>= %d;" % nbits)
+    code = [
+        "    // Data Section #%d" % self.section_count,
+        "    // e.g. data = 0x%X, nbits = %d" % (int(bin_str, 2), nbits),
+        "    sendData(k%sBitMark, k%sOneSpace, k%sBitMark, "
+        "k%sZeroSpace, send_data, %d, true);" % (name, name, name, name, nbits),
+        "    send_data >>= %d;" % nbits,
+    ]
     if footer:
-      code.append("    // Footer")
-      code.append("    mark(k%sBitMark);" % name)
+      code.extend(("    // Footer", f"    mark(k{name}BitMark);"))
     return code
 
   def add_data_decode_code(self, bin_str, name="", footer=True):
     """Add the common "data" sequence code to decode the bulk of a message."""
-    # pylint: disable=no-self-use
-    code = []
     nbits = len(bin_str)
-    code.extend([
+    code = [
         "",
         "  // Data Section #%d" % self.section_count,
         "  // e.g. data_result.data = 0x%X, nbits = %d" % (int(bin_str, 2),
                                                            nbits),
-        "  data_result = matchData(&(results->rawbuf[offset]), %s," % nbits,
-        "                          k%sBitMark, k%sOneSpace," % (name, name),
-        "                          k%sBitMark, k%sZeroSpace);" % (name, name),
+        f"  data_result = matchData(&(results->rawbuf[offset]), {nbits},",
+        f"                          k{name}BitMark, k{name}OneSpace,",
+        f"                          k{name}BitMark, k{name}ZeroSpace);",
         "  offset += data_result.used;",
         "  if (data_result.success == false) return false;  // Fail",
-        "  data <<= %s;  // Make room for the new bits of data." % nbits,
-        "  data |= data_result.data;"])
+        f"  data <<= {nbits};  // Make room for the new bits of data.",
+        "  data |= data_result.data;",
+    ]
     if footer:
       code.extend([
           "",
           "  // Footer",
-          "  if (!matchMark(results->rawbuf[offset++], k%sBitMark))" % name,
-          "    return false;"])
+          f"  if (!matchMark(results->rawbuf[offset++], k{name}BitMark))",
+          "    return false;",
+      ])
     return code
 
   def add_data_byte_code(self, bin_str, name="", ambles=None):
     """Add the code to send the data from an array."""
-    # pylint: disable=no-self-use
-    code = []
     nbits = len(bin_str)
     nbytes = nbits / 8
     if ambles is None:
       ambles = {}
     firstmark = ambles.get("firstmark", 0)
     firstspace = ambles.get("firstspace", 0)
-    lastmark = ambles.get("lastmark", "k%sBitMark" % name)
+    lastmark = ambles.get("lastmark", f"k{name}BitMark")
     lastspace = ambles.get("lastspace", "kDefaultMessageGap")
-    code.append(
-        "    // Data Section #%d" % self.section_count)
+    code = ["    // Data Section #%d" % self.section_count]
     if nbits % 8:
       code.append("    // DANGER: Nr. of bits is not a multiple of 8. "
                   "This section won't work!")
     code.extend([
         "    // e.g.",
         "    //   bits = %d; bytes = %d;" % (nbits, nbytes),
-        "    //   *(data + pos) = {0x%s};" % (
-            ", 0x".join("%02X" % int(bin_str[i:i + 8], 2)
-                        for i in range(0, len(bin_str), 8))),
-        "    sendGeneric(%s, %s," % (firstmark, firstspace),
-        "                k%sBitMark, k%sOneSpace," % (name, name),
-        "                k%sBitMark, k%sZeroSpace," % (name, name),
-        "                %s, %s," % (lastmark, lastspace),
+        "    //   *(data + pos) = {0x%s};" % (", 0x".join(
+            "%02X" % int(bin_str[i:i + 8], 2)
+            for i in range(0, len(bin_str), 8))),
+        f"    sendGeneric({firstmark}, {firstspace},",
+        f"                k{name}BitMark, k{name}OneSpace,",
+        f"                k{name}BitMark, k{name}ZeroSpace,",
+        f"                {lastmark}, {lastspace},",
         "                data + pos, %d,  // Bytes" % nbytes,
-        "                k%sFreq, true, kNoRepeat, kDutyDefault);" % name,
-        "    pos += %d;  // Adjust by how many bytes of data we sent" % nbytes])
+        f"                k{name}Freq, true, kNoRepeat, kDutyDefault);",
+        "    pos += %d;  // Adjust by how many bytes of data we sent" % nbytes,
+    ])
     return code
 
   def add_data_byte_decode_code(self, bin_str, name="", ambles=None):
@@ -183,7 +173,7 @@ class RawIRMessage():
       ambles = {}
     firstmark = ambles.get("firstmark", 0)
     firstspace = ambles.get("firstspace", 0)
-    lastmark = ambles.get("lastmark", "k%sBitMark" % name)
+    lastmark = ambles.get("lastmark", f"k{name}BitMark")
     lastspace = ambles.get("lastspace", "kDefaultMessageGap")
 
     code.extend([
@@ -191,18 +181,19 @@ class RawIRMessage():
         "  // Data Section #%d" % self.section_count,
         "  // e.g.",
         "  //   bits = %d; bytes = %d;" % (nbits, nbytes),
-        "  //   *(results->state + pos) = {0x%s};" % (
-            ", 0x".join("%02X" % int(bin_str[i:i + 8], 2)
-                        for i in range(0, len(bin_str), 8))),
+        "  //   *(results->state + pos) = {0x%s};" % (", 0x".join(
+            "%02X" % int(bin_str[i:i + 8], 2)
+            for i in range(0, len(bin_str), 8))),
         "  used = matchGeneric(results->rawbuf + offset, results->state + pos,",
         "                      results->rawlen - offset, %d," % nbits,
-        "                      %s, %s," % (firstmark, firstspace),
-        "                      k%sBitMark, k%sOneSpace," % (name, name),
-        "                      k%sBitMark, k%sZeroSpace," % (name, name),
-        "                      %s, %s, true);" % (lastmark, lastspace),
+        f"                      {firstmark}, {firstspace},",
+        f"                      k{name}BitMark, k{name}OneSpace,",
+        f"                      k{name}BitMark, k{name}ZeroSpace,",
+        f"                      {lastmark}, {lastspace}, true);",
         "  if (used == 0) return false;  // We failed to find any data.",
         "  offset += used;  // Adjust for how much of the message we read.",
-        "  pos += %d;  // Adjust by how many bytes of data we read" % nbytes])
+        "  pos += %d;  // Adjust by how many bytes of data we read" % nbytes,
+    ])
     return code
 
   def _calc_values(self):
@@ -277,9 +268,7 @@ class RawIRMessage():
 
 def avg_list(items):
   """Return the average of a list of numbers."""
-  if items:
-    return int(sum(items) / len(items))
-  return 0
+  return int(sum(items) / len(items)) if items else 0
 
 
 def add_bit(so_far, bit, output=sys.stdout):
@@ -311,9 +300,9 @@ def convert_rawdata(data_str):
 
 def dump_constants(message, defines, name="", output=sys.stdout):
   """Dump the key constants and generate the C++ #defines."""
-  ldr_mark = None
   hdr_mark = 0
   hdr_space = 0
+  ldr_mark = None
   if message.ldr_mark is not None:
     ldr_mark = avg_list(message.mark_buckets[message.ldr_mark])
   if message.hdr_mark != 0:
@@ -352,24 +341,25 @@ def dump_constants(message, defines, name="", output=sys.stdout):
       count = count + 1
       output.write("k%sSpaceGap%d = %d\n" % (name, count, gap))
       defines.append("const uint16_t k%sSpaceGap%d = %d;" % (name, count, gap))
-  defines.append("const uint16_t k%sFreq = 38000;  "
-                 "// Hz. (Guessing the most common frequency.)" % name)
+  defines.append(
+      f"const uint16_t k{name}Freq = 38000;  // Hz. (Guessing the most common frequency.)"
+  )
 
 
 def parse_and_report(rawdata_str, margin, gen_code=False, name="",
                      output=sys.stdout):
   """Analyse the rawdata c++ definition of a IR message."""
   defines = []
-  code = {}
-  code["sendcomhead"] = []
-  code["send"] = []
-  code["send64+"] = []
-  code["sendcomfoot"] = []
-  code["recvcomhead"] = []
-  code["recv"] = []
-  code["recv64+"] = []
-  code["recvcomfoot"] = []
-
+  code = {
+      "sendcomhead": [],
+      "send": [],
+      "send64+": [],
+      "sendcomfoot": [],
+      "recvcomhead": [],
+      "recv": [],
+      "recv64+": [],
+      "recvcomfoot": [],
+  }
   # Parse the input.
   rawdata = convert_rawdata(rawdata_str)
 

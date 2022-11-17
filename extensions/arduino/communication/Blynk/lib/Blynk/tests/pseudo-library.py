@@ -79,9 +79,8 @@ def handle_hw(data):
     if cmd == 'info':
         pass
 
-    ### DIRECT pin operations
     elif cmd == 'pm':
-        pairs = zip(params[0::2], params[1::2])
+        pairs = zip(params[::2], params[1::2])
         for (pin, mode) in pairs:
             pin = int(pin)
             if mode == 'in':
@@ -99,12 +98,12 @@ def handle_hw(data):
         pin = int(params.pop(0))
         val = params.pop(0)
         log("Digital write pin %d, value %s" % (pin, val))
-        
+
     elif cmd == 'aw':
         pin = int(params.pop(0))
         val = params.pop(0)
         log("Analog write pin %d, value %s" % (pin, val))
-        
+
     elif cmd == 'dr':           # This should read digital pin
         pin = int(params.pop(0))
         log("Digital read pin %d" % pin)
@@ -115,19 +114,18 @@ def handle_hw(data):
         log("Analog read pin %d" % pin)
         conn.sendall(hw("aw", pin, 123)) # Send value
 
-    ### VIRTUAL pin operations
     elif cmd == 'vw':           # This should call user handler
         pin = int(params.pop(0))
         val = params.pop(0)
         log("Virtual write pin %d, value %s" % (pin, val))
-        
+
     elif cmd == 'vr':           # This should call user handler
         pin = int(params.pop(0))
         log("Virtual read pin %d" % pin)
         conn.sendall(hw("vw", pin, "hello")) # Send value
-        
+
     else:
-        log("Unknown HW cmd: %s" % cmd)
+        log(f"Unknown HW cmd: {cmd}")
 
 static_msg_id = 1
 def genMsgId():
@@ -163,7 +161,7 @@ def receive(sock, length):
 # Threads
 
 def readthread(conn):
-    while (True):
+    while True:
         data = receive(conn, hdr.size)
         if not data:
             break
@@ -175,7 +173,7 @@ def readthread(conn):
             log("Got ping")
             # Send Pong
             conn.sendall(hdr.pack(MsgType.RSP, msg_id, MsgStatus.OK))
-        elif msg_type == MsgType.HW or msg_type == MsgType.BRIDGE:
+        elif msg_type in [MsgType.HW, MsgType.BRIDGE]:
             data = receive(conn, msg_len)
             # Print HW message
             dump("> " + " ".join(data.split("\0")))
@@ -203,13 +201,13 @@ if NODELAY != 0:
     conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 if SNDBUF != 0:
     sndbuf = conn.getsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF)
-    log('Default SNDBUF %s changed to %s' % (sndbuf, SNDBUF))
+    log(f'Default SNDBUF {sndbuf} changed to {SNDBUF}')
     conn.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, SNDBUF)
 if RCVBUF != 0:
     rcvbuf = conn.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
-    log('Default RCVBUF %s changed to %s' % (rcvbuf, RCVBUF))
+    log(f'Default RCVBUF {rcvbuf} changed to {RCVBUF}')
     conn.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, RCVBUF)
-    
+
 # Authenticate
 conn.sendall(hdr.pack(MsgType.LOGIN, genMsgId(), len(TOKEN)))
 conn.sendall(TOKEN)

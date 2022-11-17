@@ -22,28 +22,23 @@ def parse_and_report(rawdata_str, hertz=38000, end_usecs=100000,
   if end_usecs > 0 and len(rawdata) % 2 == 1:
     rawdata.append(end_usecs)
 
-  result = ["0000"]
   # Work out the frequency code.
   pronto_freq = int(1000000.0 / (hertz * 0.241246))
   if verbose:
     output.write("Pronto frequency is %X (%d Hz).\n" % (pronto_freq, hertz))
-  result.append("%04X" % pronto_freq)
+  result = ["0000", "%04X" % pronto_freq]
   period = 1000000.0 / max(1, hertz)
   if verbose:
     output.write("Pronto period is %f uSecs.\n" % period)
   # Add the lengths to the code.
   if use_initial:
-    result.append("%04x" % int(len(rawdata) / 2))  # Initial burst code length
-    result.append("%04x" % 0)  # No Repeat code length
+    result.extend(("%04x" % (len(rawdata) // 2), "%04x" % 0))
   else:
-    result.append("%04x" % 0)  # No Initial burst code length
-    result.append("%04x" % int(len(rawdata) / 2))  # Repeat code length
-
+    result.extend(("%04x" % 0, "%04x" % (len(rawdata) // 2)))
   # Add the data.
   if verbose:
-    output.write("Raw data: %s " % rawdata)
-  for i in rawdata:
-    result.append("%04x" % int(i / period))
+    output.write(f"Raw data: {rawdata} ")
+  result.extend("%04x" % int(i / period) for i in rawdata)
   if generate_code:
     output.write("uint16_t pronto[%d] = {0x%s};\n" % (len(result),
                                                       ", 0x".join(result)))

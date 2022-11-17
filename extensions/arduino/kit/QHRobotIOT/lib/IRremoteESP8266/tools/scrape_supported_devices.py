@@ -75,29 +75,26 @@ def getallacs():
   """All supported A/C codes"""
   ret = {}
   for path in ARGS.directory.iterdir():
-    match = AC_FN.match(path.name)
-    if match:
+    if match := AC_FN.match(path.name):
       acprotocol = match.group(1)
       rawmodels = getenums(path)
       models = set()
       for model in rawmodels:
         model = model.upper()
-        model = model.replace("K{}".format(acprotocol.upper()), "")
+        model = model.replace(f"K{acprotocol.upper()}", "")
         if model and model not in EXCLUDED_PROTOCOLS:
           models.add(model)
       if acprotocol in ret:
         ret[acprotocol].update(models)
       else:
         ret[acprotocol] = models
-    # Parse IRsend.h's enums
-    match = IRSEND_FN_RE.match(path.name)
-    if match:
+    if match := IRSEND_FN_RE.match(path.name):
       rawmodels = getenums(path)
       for acprotocol in rawmodels:
         models = set()
         for model in rawmodels[acprotocol]:
           model = model.upper()
-          model = model.replace("K{}".format(acprotocol.upper()), "")
+          model = model.replace(f"K{acprotocol.upper()}", "")
           if model and model not in EXCLUDED_PROTOCOLS:
             models.add(model)
         if acprotocol in ret:
@@ -137,21 +134,21 @@ class FnSets():
       protosincppwithh.sort()
       print("The following files has supports section in .cpp, expected in .h")
       for path in protosincppwithh:
-        print("\t{}".format(path))
+        print(f"\t{path}")
 
     protosincppandh = list(self.fncppmatch & self.fnhmatch)
     if protosincppandh:
       protosincppandh.sort()
       print("The following files has supports section in both .h and .cpp")
       for path in protosincppandh:
-        print("\t{}".format(path))
+        print(f"\t{path}")
 
     nosupports = self.getnosupports()
     if nosupports:
       nosupports.sort()
       print("The following files had no supports section:")
       for path in nosupports:
-        print("\t{}".format(path))
+        print(f"\t{path}")
 
     return protosincppwithh or protosincppandh or nosupports
 
@@ -173,9 +170,9 @@ def getalldevices():
     protocol = match.group(1)
     for brand, model in supports:
       protocolbrand = (protocol, brand)
-      pbset = sets.allcodes.get(protocolbrand, list())
+      pbset = sets.allcodes.get(protocolbrand, [])
       if model in pbset:
-        print("Model %s is duplicated for %s, %s" % (model, protocol, brand))
+        print(f"Model {model} is duplicated for {protocol}, {brand}")
       sets.allcodes[protocolbrand] = pbset + [model]
 
   for fnprotocol in sets.getnosupports():
@@ -190,10 +187,7 @@ def getenums(path):
   for enums in ENUMS.finditer(path.open(encoding="utf-8").read()):
     if enums:
       enum_name = AC_MODEL_ENUM_RE.search(enums.group(1))
-      if enum_name:
-        enum_name = enum_name.group(1).capitalize()
-      else:
-        enum_name = enums.group(1)
+      enum_name = enum_name.group(1).capitalize() if enum_name else enums.group(1)
       ret[enum_name] = set()
       for enum in ENUM_ENTRY.finditer(enums.group(2)):
         enum = enum.group(1)
@@ -247,7 +241,7 @@ def initargs():
   else:
     src = pathlib.Path(ARGS.directory) / "src"
   if not src.is_dir():
-    errorexit("Directory not valid: {}".format(str(src)))
+    errorexit(f"Directory not valid: {str(src)}")
   ARGS.directory = src
   return ARGS
 
@@ -258,7 +252,7 @@ def getmdfile():
 
 def errorexit(msg):
   """Print an error and exit on critical error"""
-  sys.stderr.write("{}\n".format(msg))
+  sys.stderr.write(f"{msg}\n")
   sys.exit(1)
 
 
@@ -275,13 +269,11 @@ def extractsupports(path):
       insupports = True
       continue
     if insupports:
-      match = BRAND_MODEL.match(line)
-      if match:
+      if match := BRAND_MODEL.match(line):
         supports.append((match.group("brand"), match.group("model")))
       else:
         insupports = False
         continue
-    # search and inform about any legacy formated supports data
     elif any(x in line for x in [ \
              "seems compatible with",
              "be compatible with",
@@ -292,15 +284,14 @@ def extractsupports(path):
 
 def makeurl(txt, path):
   """Make a Markup URL from given filename"""
-  return "[{}]({})".format(txt, CODE_URL + path)
+  return f"[{txt}]({CODE_URL + path})"
 
 
 def outputprotocols(fout, protocols):
   """For a given protocol set, sort and output the markdown"""
-  protocols = list(protocols)
-  protocols.sort()
+  protocols = sorted(protocols)
   for protocol in protocols:
-    fout.write("- {}\n".format(protocol))
+    fout.write(f"- {protocol}\n")
 
 
 def generate(fout):
@@ -312,9 +303,7 @@ def generate(fout):
 
   sets = getalldevices()
   allcodes = sets.allcodes
-  allbrands = list(allcodes.keys())
-  allbrands.sort()
-
+  allbrands = sorted(allcodes.keys())
   fout.write("\n# IR Protocols supported by this library\n\n")
   fout.write(
       "| Protocol | Brand | Model | A/C Model | Detailed A/C Support |\n")
@@ -327,14 +316,13 @@ def generate(fout):
     acmodels = []
     acsupport = "-"
     if protocol in allacs:
-      acmodels = list(allacs[protocol])
-      acmodels.sort()
-      brand = makeurl(brand, protocol + ".h")
+      acmodels = sorted(allacs[protocol])
+      brand = makeurl(brand, f"{protocol}.h")
       if protocol not in EXCLUDED_ACS:
         acsupport = "Yes"
 
     fout.write("| {} | **{}** | {} | {} | {} |\n".format(
-        makeurl(protocol, protocol + ".cpp"),
+        makeurl(protocol, f"{protocol}.cpp"),
         brand,
         "<BR>".join(codes).replace("|", "\\|"),
         "<BR>".join(acmodels),
@@ -367,7 +355,7 @@ def generatefile():
   # get file path
   foutpath = getmdfile()
   if ARGS.verbose:
-    print("Output path: {}".format(str(foutpath)))
+    print(f"Output path: {str(foutpath)}")
   # write data to temp memorystream
   ftemp = StringIO()
   ret = generate(ftemp)
@@ -393,13 +381,10 @@ def main():
   return True on any issues"""
   initargs()
   if ARGS.verbose:
-    print("Looking for files in: {}".format(str(ARGS.directory.resolve())))
+    print(f"Looking for files in: {str(ARGS.directory.resolve())}")
   if ARGS.noout:
     return generatenone()
-  if ARGS.stdout:
-    return generatestdout()
-  # default file
-  return generatefile()
+  return generatestdout() if ARGS.stdout else generatefile()
 
 
 if __name__ == "__main__":

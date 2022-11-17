@@ -98,8 +98,7 @@ def find_files(directory, pattern):
     for root, dirs, files in os.walk(directory):
         for basename in files:
             if fnmatch.fnmatch(basename, pattern):
-                filename = os.path.join(root, basename)
-                yield filename
+                yield os.path.join(root, basename)
 
 examples = find_files('examples', '*.ino')
 abs_examples = map(lambda x: os.path.abspath(x), examples)

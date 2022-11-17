@@ -23,7 +23,7 @@ data = base64.b64encode(data)
 data = bytes.decode(data)
 
 # Add header
-data = 'bp1' + data
+data = f'bp1{data}'
 
 # Generate QR
 url = pyqrcode.create(data, error='M', version=None, mode='binary')
